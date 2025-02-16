@@ -7,12 +7,16 @@ import discord
 import os
 from dotenv import load_dotenv
 import asyncio
+import pyautogui
+import pyscreeze
 
 # Load env variables
 load_dotenv()
 user_id = int(os.getenv("DISCORD_USER_ID"))
 channel_id = int(os.getenv("DISCORD_CHANNEL_ID"))
 token_id = os.getenv("DISCORD_BOT_TOKEN")
+mouse_x = int(os.getenv("CLOUDFLARE_X_COORD"))
+mouse_y = int(os.getenv("CLOUDFLARE_Y_COORD"))
 
 # Setup discord bot
 intents = discord.Intents.default()
@@ -32,6 +36,7 @@ options.add_argument(f"user-data-dir={profile_path}")
 options.add_argument("--profile-directory=Default")
 options.add_argument("--start-maximized")
 options.add_argument("--disable-blink-features=AutomationControlled")
+options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
 # SE: Start WebDriver with Brave
 service = Service(driver_path)
@@ -90,7 +95,7 @@ async def scrape_items():
 # Start discord connection
 @client.event
 async def on_ready():
-    global isCloudflared
+    global isCloudflared, mouse_x, mouse_y
     await client.wait_until_ready()
     channel = client.get_channel(channel_id)  # Replace with your channel ID
     try:
@@ -113,6 +118,8 @@ async def on_ready():
                     message = f"{user_mention} you have been cloudflared!"
                     print("You have been cloudflared. Refreshing in 10 seconds...\n")
                     await channel.send(message)
+                    pyautogui.moveTo(mouse_x, mouse_y, duration=5)
+                    pyautogui.click()
                 elif not botDetectionPage:
                     isCloudflared = False
                     print("No in-stock items found. Refreshing in 10 seconds...\n")
