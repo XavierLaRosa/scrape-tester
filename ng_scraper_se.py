@@ -6,6 +6,7 @@ import re
 import discord
 import os
 from dotenv import load_dotenv
+import asyncio
 
 # load env variables
 load_dotenv()
@@ -46,9 +47,9 @@ driver.get(url)
 pattern = re.compile(r"^Add .* to cart$", re.IGNORECASE)
 in_stock_items = []
 
-def scrape_items():
+async def scrape_items():
     """Scrape in-stock items and return a list of titles."""
-    time.sleep(5)  # Wait for the page to load
+    await asyncio.sleep(5)  # Wait for the page to load
     items = driver.find_elements(By.CSS_SELECTOR, ".btn-mini")
     
     for item in items:
@@ -67,7 +68,7 @@ async def on_ready():
     channel = client.get_channel(channel_id)  # Replace with your channel ID
     try:
         while True:
-            scrape_items()
+            await scrape_items()
 
             if in_stock_items:
                 print("\n📦 In-Stock Items Found:\n")
@@ -80,7 +81,7 @@ async def on_ready():
                 break
             else:
                 print("No in-stock items found. Refreshing in 10 seconds...\n")
-                time.sleep(10)
+                await asyncio.sleep(10)
                 driver.refresh()
     except KeyboardInterrupt:
         print("\nScript terminated by user.")
