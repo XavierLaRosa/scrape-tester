@@ -43,10 +43,10 @@ service = Service(driver_path)
 driver = webdriver.Chrome(service=service, options=options)
 
 # SE: Navigate to Newegg query URL
-# in stock items: https://www.newegg.com/p/pl?N=100007709%204131
-# in stock RTX 4080: https://www.newegg.com/p/pl?N=100007709%20601408875%204131
-# in stock RTX 5080: https://www.newegg.com/p/pl?N=100007709%20601469158%204131
-url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131"
+# in stock items: https://www.newegg.com/p/pl?N=100007709%204131&PageSize=96
+# in stock RTX 4080: https://www.newegg.com/p/pl?N=100007709%20601408875%204131&PageSize=96
+# in stock RTX 5080: https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96
+url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96"
 driver.get(url)
 
 pattern = re.compile(r"^Add .* to cart$", re.IGNORECASE)
@@ -63,7 +63,7 @@ class Item:
 
 async def scrape_items():
     """Scrape in-stock items and return a list of titles."""
-    await asyncio.sleep(5)  # Wait for the page to load
+    await asyncio.sleep(2)  # Wait for the page to load
     itemCells = driver.find_elements(By.CSS_SELECTOR, ".item-cell")
 
     
@@ -89,7 +89,6 @@ async def scrape_items():
             title = title.replace("Add ", "").replace(" to cart", "")[:50]
             productItem = Item(title, product_link, img_title, img_src, price)
             in_stock_items.append(productItem)
-            print(in_stock_items)
     return
 
 # Start discord connection
@@ -104,26 +103,47 @@ async def on_ready():
 
             if in_stock_items:
                 print("\n📦 In-Stock Items Found:\n")
-                for item in in_stock_items:
-                    print(f"✅ {item.img_title} {item.product_link}")
 
-                pretty_list_of_items = "\n".join([f"✅ [link]({item.product_link}): {item.img_title}" for item in in_stock_items])
-                message = f"{user_mention} new items found! {url}\n{pretty_list_of_items}"
-                await channel.send(message)
+                pretty_list_of_items = "\n".join([f"✅ [LINK]({item.product_link}): {item.img_title[:50]}" for item in in_stock_items])
+                base_message = f"{user_mention}\n**Newegg restocked {len(in_stock_items)} [items!]({url})** 🎉😄🥂🎉\n"
+                print(base_message + pretty_list_of_items)
+                
+                # Discord message character limit
+                LIMIT = 1900
+
+                # Function to chunk the message
+                def chunk_message(message, limit):
+                    chunks = []
+                    current_chunk = ""
+                    for line in message.split("\n"):
+                        if len(current_chunk) + len(line) + 1 > limit:
+                            chunks.append(current_chunk)
+                            current_chunk = ""
+                        current_chunk += line + "\n"
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    return chunks
+
+                # Split the message into chunks if needed
+                messages = chunk_message(pretty_list_of_items, LIMIT - len(base_message))
+
+                for i, chunk in enumerate(messages, start=1):
+                    header = f"{base_message}(Part {i}/{len(messages)})\n" if len(messages) > 1 else base_message
+                    await channel.send(header + chunk)
                 break
             else:
                 botDetectionPage = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
-                if botDetectionPage and not isCloudflared:
+                if botDetectionPage:
                     isCloudflared = True
                     message = f"{user_mention} you have been cloudflared!"
-                    print("You have been cloudflared. Refreshing in 10 seconds...\n")
+                    print("You have been cloudflared. Refreshing in 5 seconds ⌚...\n")
                     await channel.send(message)
                     pyautogui.moveTo(mouse_x, mouse_y, duration=5)
                     pyautogui.click()
                 elif not botDetectionPage:
                     isCloudflared = False
-                    print("No in-stock items found. Refreshing in 10 seconds...\n")
-                await asyncio.sleep(10)
+                    print("No in-stock items found 😢. Refreshing in 5 seconds ⌚...\n")
+                await asyncio.sleep(5)
                 driver.refresh()
     except KeyboardInterrupt:
         print("\nScript terminated by user.")
