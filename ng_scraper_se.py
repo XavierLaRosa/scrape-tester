@@ -41,29 +41,56 @@ driver = webdriver.Chrome(service=service, options=options)
 # in stock items: https://www.newegg.com/p/pl?N=100007709%204131
 # in stock RTX 4080: https://www.newegg.com/p/pl?N=100007709%20601408875%204131
 # in stock RTX 5080: https://www.newegg.com/p/pl?N=100007709%20601469158%204131
-url = "https://www.newegg.com/p/pl?N=100007709%204131"
+url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131"
 driver.get(url)
 
 pattern = re.compile(r"^Add .* to cart$", re.IGNORECASE)
 in_stock_items = []
 isCloudflared = False # if cloudflare 404 page occurs
 
+class Item:
+        def __init__(self, title, product_link, img_title, img_src, price):
+            self.title = title
+            self.product_link = product_link
+            self.img_title = img_title
+            self.img_src = img_src
+            self.price = price
+
 async def scrape_items():
     """Scrape in-stock items and return a list of titles."""
     await asyncio.sleep(5)  # Wait for the page to load
-    items = driver.find_elements(By.CSS_SELECTOR, ".btn-mini")
+    itemCells = driver.find_elements(By.CSS_SELECTOR, ".item-cell")
+
     
-    for item in items:
-        title = item.get_attribute("title")
+    for item in itemCells:
+        # Get add to cart button
+        cart_element = item.find_element(By.CSS_SELECTOR, ".btn-mini")
+
+        # Get product hyperlink
+        link_element = item.find_element(By.CSS_SELECTOR, ".item-title")
+        product_link = link_element.get_attribute("href")
+
+        # Get image source and title
+        img_element = item.find_element(By.CSS_SELECTOR, ".item-img img")
+        img_src = img_element.get_attribute("src")
+        img_title = img_element.get_attribute("title")
+
+        # Get current price
+        price_dollars = item.find_element(By.CSS_SELECTOR, ".price-current strong").text
+        price_cents = item.find_element(By.CSS_SELECTOR, ".price-current sup").text
+        price = f"${price_dollars}{price_cents}"
+        title = cart_element.get_attribute("title")
         if title and pattern.match(title):
             title = title.replace("Add ", "").replace(" to cart", "")[:50]
-            print(title)
-            in_stock_items.append(title)
+            productItem = Item(title, product_link, img_title, img_src, price)
+            in_stock_items.append(productItem)
+            print(in_stock_items)
     return
 
 # Start discord connection
 @client.event
 async def on_ready():
+    global isCloudflared
     await client.wait_until_ready()
     channel = client.get_channel(channel_id)  # Replace with your channel ID
     try:
@@ -72,11 +99,11 @@ async def on_ready():
 
             if in_stock_items:
                 print("\n📦 In-Stock Items Found:\n")
-                for title in in_stock_items:
-                    print(f"✅ {title}")
+                for item in in_stock_items:
+                    print(f"✅ {item.img_title} {item.product_link}")
 
-                pretty_items = "\n".join([f"- {item}" for item in in_stock_items])
-                message = f"{user_mention} new items found! ✅ {url}\n{pretty_items}"
+                pretty_list_of_items = "\n".join([f"✅ [link]({item.product_link}): {item.img_title}" for item in in_stock_items])
+                message = f"{user_mention} new items found! {url}\n{pretty_list_of_items}"
                 await channel.send(message)
                 break
             else:
