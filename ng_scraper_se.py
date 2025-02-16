@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv
 import asyncio
 
-# load env variables
+# Load env variables
 load_dotenv()
 user_id = int(os.getenv("DISCORD_USER_ID"))
 channel_id = int(os.getenv("DISCORD_CHANNEL_ID"))
@@ -41,11 +41,12 @@ driver = webdriver.Chrome(service=service, options=options)
 # in stock items: https://www.newegg.com/p/pl?N=100007709%204131
 # in stock RTX 4080: https://www.newegg.com/p/pl?N=100007709%20601408875%204131
 # in stock RTX 5080: https://www.newegg.com/p/pl?N=100007709%20601469158%204131
-url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131"
+url = "https://www.newegg.com/p/pl?N=100007709%204131"
 driver.get(url)
 
 pattern = re.compile(r"^Add .* to cart$", re.IGNORECASE)
 in_stock_items = []
+isCloudflared = False # if cloudflare 404 page occurs
 
 async def scrape_items():
     """Scrape in-stock items and return a list of titles."""
@@ -59,7 +60,6 @@ async def scrape_items():
             print(title)
             in_stock_items.append(title)
     return
-
 
 # Start discord connection
 @client.event
@@ -80,7 +80,15 @@ async def on_ready():
                 await channel.send(message)
                 break
             else:
-                print("No in-stock items found. Refreshing in 10 seconds...\n")
+                botDetectionPage = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
+                if botDetectionPage and not isCloudflared:
+                    isCloudflared = True
+                    message = f"{user_mention} you have been cloudflared!"
+                    print("You have been cloudflared. Refreshing in 10 seconds...\n")
+                    await channel.send(message)
+                elif not botDetectionPage:
+                    isCloudflared = False
+                    print("No in-stock items found. Refreshing in 10 seconds...\n")
                 await asyncio.sleep(10)
                 driver.refresh()
     except KeyboardInterrupt:
