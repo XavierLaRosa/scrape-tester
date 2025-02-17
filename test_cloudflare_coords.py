@@ -5,14 +5,23 @@ import time
 import pyautogui
 
 # SE: Path to ChromeDriver
-driver_path = r"C:\Users\xavie\OneDrive\Desktop\projects\web scraping\tools\chromedriver.exe"
+# windows: r"C:\Users\xavie\OneDrive\Desktop\projects\web scraping\tools\chromedriver.exe"
+# linux: r"/home/xvr-linux-mint/Desktop/projects/web-scraping/tools/chromedriver-linux64/chromedriver""
+# macos: r"/Users/xavierlarosa/Desktop/Workspace/web scraping/tools/chromedriver-mac-arm64-brave-version-133.0.6943.98/chromedriver"
+driver_path = r"/Users/xavierlarosa/Desktop/Workspace/web scraping/tools/chromedriver-mac-arm64-brave-version-133.0.6943.98/chromedriver"
 
 # SE: Path to Brave profile with Surfshark logged in
-profile_path = r"C:\Users\xavie\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default"
+# windows: r"C:\Users\xavie\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default"
+# linux: r"/home/xvr-linux-mint/.config/BraveSoftware/Brave-Browser/Default""
+# macos: r"/Users/xavierlarosa/Library/Application Support/BraveSoftware/Brave-Browser/Default"
+profile_path = r"/Users/xavierlarosa/Library/Application Support/BraveSoftware/Brave-Browser/Default"
 
 # SE: Set Brave as the browser
+# windows: r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+# linux: r"/opt/brave.com/brave/brave"
+# macos: r"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
 options = webdriver.ChromeOptions()
-options.binary_location = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+options.binary_location = r"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
 options.add_argument(f"user-data-dir={profile_path}")
 options.add_argument("--profile-directory=Default")
 options.add_argument("--start-maximized")
@@ -32,7 +41,7 @@ driver.get(url)
 
 try:
     print("Move the mouse to the desired location within 5 seconds...")
-    time.sleep(5)  # Gives you time to place the mouse
+    time.sleep(15)  # Gives you time to place the mouse
     x, y = pyautogui.position()
     print(f"Mouse position: X={x}, Y={y}")
 except KeyboardInterrupt:
