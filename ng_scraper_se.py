@@ -14,6 +14,7 @@ from seleniumbase import SB
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import undetected_chromedriver as uc
 
 # Load env variables
 load_dotenv()
