@@ -30,6 +30,7 @@ in_stock_items = []
 prioritized_items = ["INSPIRE", "PRIME", "Founders", "SOLID"]
 url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96"
 bot_detection = 0
+last_bot_detection_state = None
 
 # Setup discord bot
 intents = discord.Intents.default()
@@ -61,27 +62,36 @@ async def check_page():
     current_url = driver.current_url
     cloudflared = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
     if "identity/signin" in current_url:
+        if last_bot_detection_state is not "signin"
+            bot_detection = 0
+        last_bot_detection_state = "signin"
         if bot_detection == 1:
             print("Asked to sign in....")
         bot_detection = bot_detection + 1
         login()
         await check_page()
     elif "areyouahuman" in current_url:
+        if last_bot_detection_state is not "human"
+            bot_detection = 0
+        last_bot_detection_state = "human"
         if bot_detection == 1:
             print("Got humaned...")
         bot_detection = bot_detection + 1
         await asyncio.sleep(5)
         await check_page()
     elif cloudflared:
+        if last_bot_detection_state is not "cloudflare"
+            bot_detection = 0
+        last_bot_detection_state = "cloudflare"
         if bot_detection == 1:
             print("Got cloudflared...")
         bot_detection = bot_detection + 1
-        await asyncio.sleep(2)
         pyautogui.moveTo(mouse_x, mouse_y, duration=1)
         pyautogui.click()
         await asyncio.sleep(3)
         await check_page()
     else:
+        last_bot_detection_state = None
         bot_detection = 0
         return
     
