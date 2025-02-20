@@ -9,117 +9,203 @@ from dotenv import load_dotenv
 import asyncio
 import pyautogui
 import pyscreeze
+import subprocess
 
 # Load env variables
 load_dotenv()
+email = os.getenv("NEWEGG_EMAIL")
+pwd = os.getenv("NEWEGG_PWD")
+cvv = int(os.getenv("CREDIT_CARD_CVV"))
 user_id = int(os.getenv("DISCORD_USER_ID"))
 channel_id = int(os.getenv("DISCORD_CHANNEL_ID"))
 token_id = os.getenv("DISCORD_BOT_TOKEN")
 mouse_x = int(os.getenv("CLOUDFLARE_X_COORD"))
 mouse_y = int(os.getenv("CLOUDFLARE_Y_COORD"))
+chrome_driver_path = rf"{os.getenv("CHROME_DRIVER_PATH")}"
+brave_extensions_profile_path = rf"{os.getenv("BRAVE_EXTENSIONS_PROFILE_PATH")}"
+brave_binary_path = rf"{os.getenv("BRAVE_BINARY_PATH")}"
+
+# Local variables
+in_stock_items = []
+prioritized_items = ["INSPIRE", "PRIME", "Founders", "SOLID"]
+url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96"
+bot_detection = 0
 
 # Setup discord bot
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 user_mention = f"<@{user_id}>"
 
-# SE: Path to ChromeDriver
-# windows: r"C:\Users\xavie\OneDrive\Desktop\projects\web scraping\tools\chromedriver.exe"
-# linux: r"/home/xvr-linux-mint/Desktop/projects/web-scraping/tools/chromedriver-linux64/chromedriver""
-# macos: r"/Users/xavierlarosa/Desktop/Workspace/web scraping/tools/chromedriver-mac-arm64-brave-version-133.0.6943.98/chromedriver"
-driver_path = r"/Users/xavierlarosa/Desktop/Workspace/web scraping/tools/chromedriver-mac-arm64-brave-version-133.0.6943.98/chromedriver"
-
-# SE: Path to Brave profile with Surfshark logged in
-# windows: r"C:\Users\xavie\AppData\Local\BraveSoftware\Brave-Browser\User Data\Default"
-# linux: r"/home/xvr-linux-mint/.config/BraveSoftware/Brave-Browser/Default""
-# macos: r"/Users/xavierlarosa/Library/Application Support/BraveSoftware/Brave-Browser/Default"
-profile_path = r"/Users/xavierlarosa/Library/Application Support/BraveSoftware/Brave-Browser/Default"
-
 # SE: Set Brave as the browser
-# windows: r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-# linux: r"/opt/brave.com/brave/brave"
-# macos: r"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
 options = webdriver.ChromeOptions()
-options.binary_location = r"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
-options.add_argument(f"user-data-dir={profile_path}")
+options.binary_location = brave_binary_path
+options.add_argument(f"user-data-dir={brave_extensions_profile_path}")
 options.add_argument("--profile-directory=Default")
 options.add_argument("--start-maximized")
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
 # SE: Start WebDriver with Brave
-service = Service(driver_path)
+service = Service(chrome_driver_path)
 driver = webdriver.Chrome(service=service, options=options)
 
-# SE: Navigate to Newegg query URL
-# in stock items: https://www.newegg.com/p/pl?N=100007709%204131&PageSize=96
-# in stock RTX 4080: https://www.newegg.com/p/pl?N=100007709%20601408875%204131&PageSize=96
-# in stock RTX 5080: https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96
-url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96"
-driver.get(url)
-
-pattern = re.compile(r"^Add .* to cart$", re.IGNORECASE)
-in_stock_items = []
-isCloudflared = False # if cloudflare 404 page occurs
-
 class Item:
-        def __init__(self, title, product_link, img_title, img_src, price):
-            self.title = title
+        def __init__(self, product_link, product_label, price):
             self.product_link = product_link
-            self.img_title = img_title
-            self.img_src = img_src
+            self.product_label = product_label
             self.price = price
 
-async def scrape_items():
-    """Scrape in-stock items and return a list of titles."""
-    await asyncio.sleep(2)  # Wait for the page to load
-    itemCells = driver.find_elements(By.CSS_SELECTOR, ".item-cell")
-
+async def check_page():
+    global bot_detection
+    await asyncio.sleep(2)
+    current_url = driver.current_url
+    cloudflared = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
+    if "identity/signin" in current_url:
+        if bot_detection == 1:
+            print("Asked to sign in....")
+        else:
+            bot_detection = bot_detection + 1
+        login()
+        await check_page()
+    elif "areyouahuman" in current_url:
+        if bot_detection == 1:
+            print("Got humaned...")
+        else:
+            bot_detection = bot_detection + 1
+        await asyncio.sleep(5)
+        await check_page()
+    elif cloudflared:
+        if bot_detection == 1:
+            print("Got cloudflared...")
+        else:
+            bot_detection = bot_detection + 1
+        await asyncio.sleep(2)
+        pyautogui.moveTo(mouse_x, mouse_y, duration=1)
+        pyautogui.click()
+        await asyncio.sleep(3)
+        await check_page()
+    else:
+        bot_detection = 0
+        return
     
-    for item in itemCells:
-        # Get add to cart button
-        cart_element = item.find_element(By.CSS_SELECTOR, ".btn-mini")
+async def login():
+    global email, pwd
 
+    current_url = driver.current_url
+    if "signin" not in current_url:
+        driver.get("https://secure.newegg.com/login/signin")
+        await asyncio.sleep(2)
+
+    sign_in_err_page = driver.find_elements(By.CSS_SELECTOR, ".empty-buttons")
+    email_input = driver.find_elements(By.ID, "labeled-input-signEmail")
+    pwd_input = driver.find_elements(By.ID, "labeled-input-password")
+    if sign_in_err_page:
+        refresh_btn = driver.find_element(By.CSS_SELECTOR, ".btn-orange")
+        driver.execute_script("arguments[0].click();", refresh_btn)
+        await asyncio.sleep(2)
+    if email_input:
+        email_input[0].send_keys(email)
+        email_login_btn = driver.find_element(By.CSS_SELECTOR, ".btn-orange")
+        driver.execute_script("arguments[0].click();", email_login_btn)
+        await asyncio.sleep(2)
+    if pwd_input:
+        pwd_input[0].send_keys(pwd)
+        pwd_login_btn = driver.find_element(By.CSS_SELECTOR, ".btn-orange")
+        driver.execute_script("arguments[0].click();", pwd_login_btn)
+        await asyncio.sleep(2)
+
+async def add_to_cart(url):
+    driver.get(url)
+    await check_page()
+
+    add_to_cart_btn = driver.find_element(By.CSS_SELECTOR, ".btn-wide")
+    driver.execute_script("arguments[0].click();", add_to_cart_btn)
+    await check_page()
+    print("Added item to cart!")
+
+async def place_order():
+    global cvv
+    driver.get("https://secure.newegg.com/shop/cart")
+    await asyncio.sleep(2)
+    await check_page()
+
+    checkout_btn = driver.find_element(By.CSS_SELECTOR, ".btn-wide")
+    driver.execute_script("arguments[0].click();", checkout_btn)
+    await asyncio.sleep(2)
+    await check_page()
+
+    cvv_input = driver.find_element(By.NAME, "cvvNumber")
+    cvv_input.click()
+    await asyncio.sleep(2)
+    cvv_input.send_keys(cvv)
+
+    confirm_pmt_method_btn = driver.find_elements(By.CSS_SELECTOR, ".checkout-step-action-done")
+    if confirm_pmt_method_btn:
+        driver.execute_script("arguments[0].click();", confirm_pmt_method_btn[0])
+        await asyncio.sleep(1)
+
+    # place_order_btn = driver.find_element(By.ID, "btnCreditCard")
+    # driver.execute_script("arguments[0].click();", place_order_btn)
+    # await check_page()
+    # await asyncio.sleep(5)
+
+    current_url = driver.current_url
+    if "confirmation" in current_url:
+        print("Order has been placed!")
+    else:
+        print(f"Was not able to complete your order")
+
+async def scrape_items():
+    await asyncio.sleep(2)  # Wait for the page to load
+    items = driver.find_elements(By.CSS_SELECTOR, ".item-cell")
+    
+    for item in items:
         # Get product hyperlink
         link_element = item.find_element(By.CSS_SELECTOR, ".item-title")
         product_link = link_element.get_attribute("href")
 
-        # Get image source and title
+        # Get product label
         img_element = item.find_element(By.CSS_SELECTOR, ".item-img img")
-        img_src = img_element.get_attribute("src")
-        img_title = img_element.get_attribute("title")
+        product_label = img_element.get_attribute("title")
 
         # Get current price
         price_dollars = item.find_element(By.CSS_SELECTOR, ".price-current strong").text
         price_cents = item.find_element(By.CSS_SELECTOR, ".price-current sup").text
         price = f"${price_dollars}{price_cents}"
-        title = cart_element.get_attribute("title")
-        if title and pattern.match(title):
-            title = title.replace("Add ", "").replace(" to cart", "")[:50]
-            productItem = Item(title, product_link, img_title, img_src, price)
-            in_stock_items.append(productItem)
+  
+        for prioritized_item in prioritized_items:
+            if prioritized_item in product_label:
+                print(f"Found: {product_label}")
+                await add_to_cart(product_link)
+                await place_order()
+                # need to fix right here, where if order is placed, it breaks outer for loop since not in main items list page anymore
+
+        productItem = Item(product_link, product_label, price)
+        in_stock_items.append(productItem)
     return
 
 # Start discord connection
 @client.event
 async def on_ready():
-    global isCloudflared, mouse_x, mouse_y
+    global mouse_x, mouse_y
     await client.wait_until_ready()
-    channel = client.get_channel(channel_id)  # Replace with your channel ID
+    channel = client.get_channel(channel_id)
     try:
+        await login()
+        await check_page()
+        driver.get(url)
+        await check_page()
+
         while True:
+            await check_page()
             await scrape_items()
 
             if in_stock_items:
-                print("\n📦 In-Stock Items Found:\n")
-
-                pretty_list_of_items = "\n".join([f"✅ [LINK]({item.product_link}): {item.img_title[:50]}" for item in in_stock_items])
+                DISCORD_MSSG_LIMIT = 1900
+                pretty_list_of_items = "\n".join([f"✅ [LINK]({item.product_link}): {item.product_label[:50]}" for item in in_stock_items])
                 base_message = f"{user_mention}\n**Newegg restocked {len(in_stock_items)} [items!]({url})** 🎉😄🥂🎉\n"
-                print(base_message + pretty_list_of_items)
+                print(f"\n📦 In-Stock Items Found:\n{pretty_list_of_items}")
                 
-                # Discord message character limit
-                LIMIT = 1900
-
                 # Function to chunk the message
                 def chunk_message(message, limit):
                     chunks = []
@@ -134,24 +220,13 @@ async def on_ready():
                     return chunks
 
                 # Split the message into chunks if needed
-                messages = chunk_message(pretty_list_of_items, LIMIT - len(base_message))
-
+                messages = chunk_message(pretty_list_of_items, DISCORD_MSSG_LIMIT - len(base_message))
                 for i, chunk in enumerate(messages, start=1):
                     header = f"{base_message}(Part {i}/{len(messages)})\n" if len(messages) > 1 else base_message
                     await channel.send(header + chunk)
                 break
             else:
-                botDetectionPage = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
-                if botDetectionPage:
-                    isCloudflared = True
-                    message = f"{user_mention} you have been cloudflared!"
-                    print("You have been cloudflared. Refreshing in 5 seconds ⌚...\n")
-                    await channel.send(message)
-                    pyautogui.moveTo(mouse_x, mouse_y, duration=5)
-                    pyautogui.click()
-                elif not botDetectionPage:
-                    isCloudflared = False
-                    print("No in-stock items found 😢. Refreshing in 5 seconds ⌚...\n")
+                print("No in-stock items found 😢. Refreshing in 5 seconds ⌚...\n")
                 await asyncio.sleep(5)
                 driver.refresh()
     except KeyboardInterrupt:
