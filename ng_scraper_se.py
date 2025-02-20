@@ -63,22 +63,19 @@ async def check_page():
     if "identity/signin" in current_url:
         if bot_detection == 1:
             print("Asked to sign in....")
-        else:
-            bot_detection = bot_detection + 1
+        bot_detection = bot_detection + 1
         login()
         await check_page()
     elif "areyouahuman" in current_url:
         if bot_detection == 1:
             print("Got humaned...")
-        else:
-            bot_detection = bot_detection + 1
+        bot_detection = bot_detection + 1
         await asyncio.sleep(5)
         await check_page()
     elif cloudflared:
         if bot_detection == 1:
             print("Got cloudflared...")
-        else:
-            bot_detection = bot_detection + 1
+        bot_detection = bot_detection + 1
         await asyncio.sleep(2)
         pyautogui.moveTo(mouse_x, mouse_y, duration=1)
         pyautogui.click()
