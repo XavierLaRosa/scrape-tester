@@ -30,7 +30,7 @@ in_stock_items = []
 prioritized_items = ["INSPIRE", "PRIME", "Founders", "SOLID"]
 url = "https://www.newegg.com/p/pl?N=100007709%20601469158%204131&PageSize=96"
 bot_detection = 0
-last_bot_detection_state = None
+last_bot_detection_state = ""
 
 # Setup discord bot
 intents = discord.Intents.default()
@@ -62,7 +62,7 @@ async def check_page():
     current_url = driver.current_url
     cloudflared = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
     if "identity/signin" in current_url:
-        if last_bot_detection_state is not "signin"
+        if last_bot_detection_state != "signin":
             bot_detection = 0
         last_bot_detection_state = "signin"
         if bot_detection == 1:
@@ -71,7 +71,7 @@ async def check_page():
         login()
         await check_page()
     elif "areyouahuman" in current_url:
-        if last_bot_detection_state is not "human"
+        if last_bot_detection_state != "human":
             bot_detection = 0
         last_bot_detection_state = "human"
         if bot_detection == 1:
@@ -80,7 +80,7 @@ async def check_page():
         await asyncio.sleep(5)
         await check_page()
     elif cloudflared:
-        if last_bot_detection_state is not "cloudflare"
+        if last_bot_detection_state != "cloudflare":
             bot_detection = 0
         last_bot_detection_state = "cloudflare"
         if bot_detection == 1:
@@ -91,7 +91,7 @@ async def check_page():
         await asyncio.sleep(3)
         await check_page()
     else:
-        last_bot_detection_state = None
+        last_bot_detection_state = ""
         bot_detection = 0
         return
     
