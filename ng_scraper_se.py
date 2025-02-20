@@ -68,7 +68,7 @@ async def check_page():
         if bot_detection == 1:
             print("Asked to sign in....")
         bot_detection = bot_detection + 1
-        login()
+        await login()
         await check_page()
     elif "areyouahuman" in current_url:
         if last_bot_detection_state != "human":
