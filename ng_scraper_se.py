@@ -57,7 +57,7 @@ class Item:
             self.price = price
 
 async def check_page():
-    global bot_detection
+    global bot_detection, last_bot_detection_state
     await asyncio.sleep(2)
     current_url = driver.current_url
     cloudflared = driver.find_elements(By.CSS_SELECTOR, ".page-404-text")
